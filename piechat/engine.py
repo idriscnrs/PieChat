@@ -1,56 +1,55 @@
-import gradio as gr
-from vllm import SamplingParams, AsyncEngineArgs, AsyncLLMEngine
-from pathlib import Path
-import os
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma
 import re
+from pathlib import Path
 
-DSDIR = Path(os.environ['DSDIR'])
-HF_MODELS_PATH = DSDIR / "HuggingFace_Models"
-
-EMBEDDING_PATH = HF_MODELS_PATH / "sentence-transformers/sentence-t5-xxl"
-VDB_PATH = Path("./SpeLLM/chroma_vdb_t5")
-MODEL_PATH = HF_MODELS_PATH / "meta-llama/Meta-Llama-3-8B-Instruct"
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.vectorstores import Chroma
+from vllm import AsyncEngineArgs, AsyncLLMEngine, SamplingParams
 
 
 class PieChat:
-    def __init__(self):
+    def __init__(
+        self,
+        llm_path: Path,
+        embedding_path: Path,
+        vdb_path: Path,
+        stop_tokens: list,
+    ):
         llm_args = AsyncEngineArgs(
-            model=str(MODEL_PATH),
+            model=str(llm_path),
+            max_model_len=4096,
             dtype="bfloat16",
-            gpu_memory_utilization=0.50
+            gpu_memory_utilization=0.80
         )
         self.llm = AsyncLLMEngine.from_engine_args(llm_args)
         self.sampling_params = SamplingParams(
-            temperature=0.1,
+            temperature=0.75,
             max_tokens=1000,
-            stop=["<|eot_id|>", "<|user|>", "<|assistant|>"]
+            stop=stop_tokens
         )
 
         self.embedding = HuggingFaceEmbeddings(
-            model_name=str(EMBEDDING_PATH),  # Does not accept Path
-            model_kwargs={"device": "cuda"},
+            model_name=str(embedding_path),  # Does not accept Path
+            model_kwargs={"device": "cuda", "trust_remote_code": True},
         )
         self.vectordb = Chroma(
             embedding_function=self.embedding,
-            persist_directory=str(VDB_PATH)
+            persist_directory=str(vdb_path)
         )
 
     def get_retrived_docs(self, message):
-        docs = self.vectordb.similarity_search(message, k=8)
+        docs = self.vectordb.similarity_search_with_relevance_scores(message, k=6)
         return docs
 
     def remove_source(self, text):
         return re.sub(r'\n\nsources:\n.*', '', text, flags=re.DOTALL)
 
     def get_llm_input(self, message, docs, history):
-        retrieved_infos = " ".join([doc.page_content for doc in docs])
+        retrieved_infos = " ".join([doc[0].page_content for doc in docs])
 
         header = (
-            "<|start_header_id|>You are a chatbot that help Jean Zay users. "
-            + "Jean Zay is the supercomputer hosted by IDRIS-CNRS. The users speaks "
-            + "French or English and you should answer with the same language."
+            "<|begin_of_text|><|start_header_id|>You are a chatbot that help Jean Zay "
+            + "users. Jean Zay is the supercomputer hosted by IDRIS-CNRS. The users "
+            + "speaks French or English and you should answer with the same language."
             + "You should answer the question using the <|retrieved_info|>."
             + "<|end_header_id|>\n"
         )
@@ -74,7 +73,7 @@ class PieChat:
 
     def get_sources(self, docs):
         sources = "\n".join(
-            set([doc.metadata["source"] for doc in docs])
+            set([doc[0].metadata["source"] + f" {doc[1]}" for doc in docs])
         )
         return "sources:\n" + sources
 
@@ -102,8 +101,3 @@ class PieChat:
         chat_out = request_output.outputs[0].text + "\n"*2 + sources
 
         yield chat_out
-
-
-if __name__ == "__main__":
-    pie_chat = PieChat()
-    gr.ChatInterface(pie_chat.chat).launch(share=True)

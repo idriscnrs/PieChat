@@ -11,5 +11,5 @@ def run():
     if config.make_vdb:
         make_vdb(config)
     else:
-        pie_chat = PieChat(**config.export())
+        pie_chat = PieChat(**config.export(), llm_config=config.llm_config)
         gr.ChatInterface(pie_chat.chat).launch(share=True)

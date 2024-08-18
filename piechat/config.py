@@ -98,24 +98,37 @@ class Config:
 
 
 @dataclass(kw_only=True)
-class GlobalConfig(Config):
-    config_name: str = "GLOBAL"
+class LLMConfig(Config):
+    config_name: str = "LLM"
 
-    models_dir: Path = field(
-        default=Path.cwd() / "models",
-        metadata={"converter": Path, "export": False}
-    )
-
-    llm_name: str = field(
-        default="model", metadata={"converter": str, "export": False}
-    )
     llm_path: Path = field(
         default="", metadata={"converter": Path, "export": True}
     )
-
-    embedding_name: str = field(
-        default="embedding", metadata={"converter": str, "export": False}
+    max_model_length: int = field(
+        default=4096, metadata={"converter": int, "export": True}
     )
+    dtype: str = field(
+        default="bfloat16", metadata={"converter": str, "export": True}
+    )
+    gpu_memory_utilization: float = field(
+        default=0.80, metadata={"converter": float, "export": True}
+    )
+    temperature: float = field(
+        default=0.75, metadata={"converter": float, "export": True}
+    )
+    max_tokens: int = field(
+        default=1024, metadata={"converter": int, "export": True}
+    )
+    stop_tokens: list = field(
+        default_factory=lambda: "eos,bos",
+        metadata={"converter": lambda x: x.split(","), "export": True}
+    )
+
+
+@dataclass(kw_only=True)
+class GlobalConfig(Config):
+    config_name: str = "GLOBAL"
+
     embedding_path: Path = field(
         default="", metadata={"converter": Path, "export": True}
     )
@@ -127,19 +140,11 @@ class GlobalConfig(Config):
         default=Path.cwd() / "data", metadata={"converter": Path, "export": False}
     )
 
-    stop_tokens: list = field(
-        default_factory=lambda: "eos,bos",
-        metadata={"converter": lambda x: x.split(","), "export": True}
-    )
-
     make_vdb: bool = field(
         default=False, metadata={"converter": bool, "export": False}
     )
 
-    def __post_init__(self) -> None:
-        super().__post_init__()
-        if self.llm_path == Path(""):
-            self.llm_path = self.models_dir / self.llm_name
-
-        if self.embedding_path == Path(""):
-            self.embedding_path = self.models_dir / self.embedding_name
+    llm_config: LLMConfig = field(
+        default_factory=lambda: LLMConfig(sub_config=True),
+        metadata={"export": False}
+    )

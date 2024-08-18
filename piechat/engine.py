@@ -5,26 +5,27 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 from vllm import AsyncEngineArgs, AsyncLLMEngine, SamplingParams
 
+from .config import LLMConfig
+
 
 class PieChat:
     def __init__(
         self,
-        llm_path: Path,
         embedding_path: Path,
         vdb_path: Path,
-        stop_tokens: list,
+        llm_config: LLMConfig,
     ):
         llm_args = AsyncEngineArgs(
-            model=str(llm_path),
-            max_model_len=4096,
-            dtype="bfloat16",
-            gpu_memory_utilization=0.80
+            model=str(llm_config.llm_path),
+            max_model_len=llm_config.max_model_length,
+            dtype=llm_config.dtype,
+            gpu_memory_utilization=llm_config.gpu_memory_utilization
         )
         self.llm = AsyncLLMEngine.from_engine_args(llm_args)
         self.sampling_params = SamplingParams(
-            temperature=0.75,
-            max_tokens=1000,
-            stop=stop_tokens
+            temperature=llm_config.temperature,
+            max_tokens=llm_config.max_tokens,
+            stop=llm_config.stop_tokens
         )
 
         self.embedding = HuggingFaceEmbeddings(

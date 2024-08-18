@@ -73,10 +73,14 @@ class PieChat:
         return text_input
 
     def get_sources(self, docs):
-        sources = "\n".join(
-            set([doc[0].metadata["source"] + f" {doc[1]}" for doc in docs])
+        # Extract source and score, and sort by score
+        sorted_sources = sorted(
+            [f"{doc[0].metadata['source']} {doc[1]}" for doc in docs],
+            key=lambda x: float(x.split()[-1]),  # The score is the last element
+            reverse=True  # Sort in descending order
         )
-        return "sources:\n" + sources
+        sources = "\n".join(sorted_sources)
+        return "sources with their scores:\n" + sources
 
     async def chat(self, message, history):
 

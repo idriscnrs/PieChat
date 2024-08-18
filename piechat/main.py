@@ -1,7 +1,6 @@
-import gradio as gr
-
 from .config import GlobalConfig
 from .engine import PieChat
+from .gradio import launch_gradio
 from .make_vdb import make_vdb
 
 
@@ -12,4 +11,5 @@ def run():
         make_vdb(config)
     else:
         pie_chat = PieChat(**config.export(), llm_config=config.llm_config)
-        gr.ChatInterface(pie_chat.chat).launch(share=True)
+        config.like_data_path.mkdir(exist_ok=True)
+        launch_gradio(pie_chat, config)

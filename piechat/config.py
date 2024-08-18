@@ -72,7 +72,7 @@ class Config:
     def export(self, meta_filter="export") -> dict:
         config_dict = {}
         for data_field in fields(self):
-            if data_field.metadata.get(meta_filter):
+            if data_field.metadata.get(meta_filter) or meta_filter == "all":
                 config_value = getattr(self, data_field.name)
                 if isinstance(config_value, Config):
                     sub_config_dict = {
@@ -82,6 +82,14 @@ class Config:
                     config_dict.update(sub_config_dict)
                 else:
                     config_dict[data_field.name] = config_value
+        return config_dict
+
+    def export_config(self) -> dict:
+        config_dict = self.export("all")
+        # Transform Path to str
+        for key, value in config_dict.items():
+            if isinstance(value, Path):
+                config_dict[key] = str(value)
         return config_dict
 
     def __str__(self) -> str:
@@ -141,11 +149,15 @@ class GlobalConfig(Config):
     )
 
     retrieval_threshold: float = field(
-        default=0.2, metadata={"converter": float, "export": True}
+        default=0.2, metadata={"converter": float, "export": False}
     )
 
     make_vdb: bool = field(
         default=False, metadata={"converter": bool, "export": False}
+    )
+
+    like_data_path: Path = field(
+        default=Path.cwd() / "like_data", metadata={"converter": Path, "export": False}
     )
 
     llm_config: LLMConfig = field(

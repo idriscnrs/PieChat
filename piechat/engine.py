@@ -2,7 +2,7 @@ import re
 from pathlib import Path
 
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from vllm import AsyncEngineArgs, AsyncLLMEngine, SamplingParams
 
 from .config import LLMConfig
@@ -13,7 +13,6 @@ class PieChat:
         self,
         embedding_path: Path,
         vdb_path: Path,
-        retrieval_threshold: float,
         llm_config: LLMConfig,
     ):
         llm_args = AsyncEngineArgs(
@@ -23,11 +22,7 @@ class PieChat:
             gpu_memory_utilization=llm_config.gpu_memory_utilization
         )
         self.llm = AsyncLLMEngine.from_engine_args(llm_args)
-        self.sampling_params = SamplingParams(
-            temperature=llm_config.temperature,
-            max_tokens=llm_config.max_tokens,
-            stop=llm_config.stop_tokens
-        )
+        self.llm_config = llm_config
 
         self.embedding = HuggingFaceEmbeddings(
             model_name=str(embedding_path),  # Does not accept Path
@@ -37,11 +32,17 @@ class PieChat:
             embedding_function=self.embedding,
             persist_directory=str(vdb_path)
         )
-        self.retrieval_threshold = retrieval_threshold
 
-    def get_retrived_docs(self, message):
-        docs = self.vectordb.similarity_search_with_relevance_scores(message, k=6)
-        docs = [(doc, score) for doc, score in docs if score > self.retrieval_threshold]
+    def get_retrived_docs(self, message, retrieval_threshold):
+        docs = self.vectordb.similarity_search_with_relevance_scores(message, k=8)
+        self.last_retrieved_docs = [
+            {
+                "metadata": doc[0].metadata,
+                "content": doc[0].page_content,
+                "score": doc[1]
+            } for doc in docs
+        ]  # Save the last retrieved docs for dpo training
+        docs = [(doc, score) for doc, score in docs if score > retrieval_threshold]
         return docs
 
     def remove_source(self, text):
@@ -69,6 +70,7 @@ class PieChat:
         else:
             history_str = ""
 
+        self.last_history = history_str
         last_chat = f"<|user|>: {message}\n<|assistant|>:"
 
         text_input = header + retrieved_str + history_str + last_chat
@@ -82,30 +84,47 @@ class PieChat:
             key=lambda x: float(x.split()[-1]),  # The score is the last element
             reverse=True  # Sort in descending order
         )
+
         sources = "\n".join(sorted_sources)
         return "sources with their scores:\n" + sources
 
-    async def chat(self, message, history):
+    async def chat(
+        self, message, history, temperature, max_tokens, retrieval_threshold
+    ):
+        sampling_params = SamplingParams(
+            temperature=temperature,
+            max_tokens=max_tokens,
+            stop=self.llm_config.stop_tokens
+        )
 
         query = message + " " + " ".join(
             [interaction[0] for interaction in history]
             if len(history) > 0 else ""
         )
-        retrieved_docs = self.get_retrived_docs(query)
+        self.last_query = query  # Save the last query for dpo training
+        retrieved_docs = self.get_retrived_docs(query, retrieval_threshold)
 
-        # get a unique request id per chat
-        request_id = str(hash(query))
-        outputs = self.llm.generate(
-            self.get_llm_input(message, retrieved_docs, history),
-            self.sampling_params,
-            request_id
-        )
+        if len(retrieved_docs) == 0:
+            no_doc_message = "No relevant documents found. Please retry with another "
+            no_doc_message += "query or call the assistance."
+            self.last_generation = no_doc_message
+            yield no_doc_message
 
-        async for request_output in outputs:
-            yield request_output.outputs[0].text
+        else:
+            # get a unique request id per chat
+            request_id = str(hash(query))
+            outputs = self.llm.generate(
+                self.get_llm_input(message, retrieved_docs, history),
+                sampling_params,
+                request_id
+            )
 
-        sources = self.get_sources(retrieved_docs)
+            async for request_output in outputs:
+                yield request_output.outputs[0].text
 
-        chat_out = request_output.outputs[0].text + "\n"*2 + sources
+            self.last_generation = request_output.outputs[0].text
 
-        yield chat_out
+            sources = self.get_sources(retrieved_docs)
+            chat_out = request_output.outputs[0].text + "\n"*2 + sources
+
+            yield chat_out

@@ -13,6 +13,7 @@ class PieChat:
         self,
         embedding_path: Path,
         vdb_path: Path,
+        retrieval_threshold: float,
         llm_config: LLMConfig,
     ):
         llm_args = AsyncEngineArgs(
@@ -36,9 +37,11 @@ class PieChat:
             embedding_function=self.embedding,
             persist_directory=str(vdb_path)
         )
+        self.retrieval_threshold = retrieval_threshold
 
     def get_retrived_docs(self, message):
         docs = self.vectordb.similarity_search_with_relevance_scores(message, k=6)
+        docs = [(doc, score) for doc, score in docs if score > self.retrieval_threshold]
         return docs
 
     def remove_source(self, text):

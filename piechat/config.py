@@ -140,6 +140,10 @@ class GlobalConfig(Config):
         default=Path.cwd() / "data", metadata={"converter": Path, "export": False}
     )
 
+    retrieval_threshold: float = field(
+        default=0.2, metadata={"converter": float, "export": True}
+    )
+
     make_vdb: bool = field(
         default=False, metadata={"converter": bool, "export": False}
     )

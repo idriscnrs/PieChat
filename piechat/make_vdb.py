@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pandas as pd
+import torch
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_text_splitters import (
@@ -9,7 +10,7 @@ from langchain_text_splitters import (
 )
 from transformers import AutoTokenizer
 
-from .config import GlobalConfig
+from .config import GlobalConfig, EmbeddingConfig
 
 
 def split_markdown(
@@ -26,7 +27,7 @@ def split_markdown(
     )
     r_splitter = RecursiveCharacterTextSplitter.from_huggingface_tokenizer(
         tokenizer=tokenizer,
-        chunk_size=500,
+        chunk_size=400,
         chunk_overlap=100,
         separators=["\n\n", "\n", r"(?<=\. )", " ", ""]
     )
@@ -51,12 +52,19 @@ def split_markdown(
 
 
 def create_vdb(
-    docs: list, embedding_path: Path, vdb_path: Path
+    docs: list, emb_config: EmbeddingConfig, vdb_path: Path
 ):
     """Create a vector database from the documents"""
     embedding = HuggingFaceEmbeddings(
-        model_name=str(embedding_path),  # Does not accept Path
-        model_kwargs={"device": "cuda", "trust_remote_code": True},
+        model_name=str(emb_config.embedding_path),  # Does not accept Path
+        model_kwargs={
+            "device": f"cuda:{emb_config.device_id}",
+            "trust_remote_code": not emb_config.no_trust_remote_code,
+            # "model_kwargs": {
+            #     "attn_implementation": emb_config.attn_implementation,
+            #     "torch_dtype": torch.float16
+            # } 
+        },
     )
 
     if vdb_path.exists():
@@ -82,12 +90,12 @@ def make_vdb(config: GlobalConfig):
 
     docs = split_markdown(
         meta_df=meta_df,
-        embedding_path=config.embedding_path,
+        embedding_path=config.emb_config.embedding_path,
         data_path=config.data_path
     )
 
     create_vdb(
         docs=docs,
-        embedding_path=config.embedding_path,
+        emb_config=config.emb_config,
         vdb_path=config.vdb_path
     )

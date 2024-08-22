@@ -1,32 +1,41 @@
 import re
 from pathlib import Path
 
+import idr_torch
+import torch
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from vllm import AsyncEngineArgs, AsyncLLMEngine, SamplingParams
 
-from .config import LLMConfig
+from .config import LLMConfig, EmbeddingConfig
 
 
 class PieChat:
     def __init__(
         self,
-        embedding_path: Path,
         vdb_path: Path,
         llm_config: LLMConfig,
+        emb_config: EmbeddingConfig
     ):
         llm_args = AsyncEngineArgs(
             model=str(llm_config.llm_path),
             max_model_len=llm_config.max_model_length,
             dtype=llm_config.dtype,
-            gpu_memory_utilization=llm_config.gpu_memory_utilization
+            gpu_memory_utilization=llm_config.gpu_memory_utilization,
+            tensor_parallel_size=llm_config.tensor_parallel_size
         )
         self.llm = AsyncLLMEngine.from_engine_args(llm_args)
         self.llm_config = llm_config
 
         self.embedding = HuggingFaceEmbeddings(
-            model_name=str(embedding_path),  # Does not accept Path
-            model_kwargs={"device": "cuda", "trust_remote_code": True},
+            model_name=str(emb_config.embedding_path),  # Does not accept Path
+            model_kwargs={
+                "device": f"cuda:{emb_config.device_id}",
+                "trust_remote_code": not emb_config.no_trust_remote_code,
+                # "model_kwargs": {
+                #     "attn_implementation": emb_config.attn_implementation,
+                # } 
+            },
         )
         self.vectordb = Chroma(
             embedding_function=self.embedding,
@@ -42,6 +51,7 @@ class PieChat:
                 "score": doc[1]
             } for doc in docs
         ]  # Save the last retrieved docs for dpo training
+        print("#"*10, idr_torch.rank, docs)
         docs = [(doc, score) for doc, score in docs if score > retrieval_threshold]
         return docs
 

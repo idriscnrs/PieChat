@@ -6,10 +6,15 @@ from .make_vdb import make_vdb
 
 def run():
     config = GlobalConfig()
+    print(config)
 
     if config.make_vdb:
         make_vdb(config)
     else:
-        pie_chat = PieChat(**config.export(), llm_config=config.llm_config)
+        pie_chat = PieChat(
+            **config.export(),
+            llm_config=config.llm_config,
+            emb_config=config.emb_config
+        )
         config.like_data_path.mkdir(exist_ok=True)
         launch_gradio(pie_chat, config)

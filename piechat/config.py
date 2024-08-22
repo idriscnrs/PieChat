@@ -131,15 +131,32 @@ class LLMConfig(Config):
         default_factory=lambda: "eos,bos",
         metadata={"converter": lambda x: x.split(","), "export": True}
     )
+    tensor_parallel_size: int = field(
+        default=1, metadata={"converter": int, "export": True}
+    )
+
+
+@dataclass(kw_only=True)
+class EmbeddingConfig(Config):
+    config_name: str = "EMBEDDING"
+
+    embedding_path: Path = field(
+        default="", metadata={"converter": Path, "export": True}
+    )
+    device_id: int = field(
+        default=0, metadata={"converter": int, "export": True}
+    )
+    no_trust_remote_code: bool = field(
+        default=False, metadata={"converter": bool, "export": True}
+    )
+    attn_implementation: str = field(
+        default="flash_attention_2", metadata={"converter": str, "export": True}
+    )
 
 
 @dataclass(kw_only=True)
 class GlobalConfig(Config):
     config_name: str = "GLOBAL"
-
-    embedding_path: Path = field(
-        default="", metadata={"converter": Path, "export": True}
-    )
 
     vdb_path: Path = field(
         default=Path.cwd() / "vdb", metadata={"converter": Path, "export": True}
@@ -162,5 +179,9 @@ class GlobalConfig(Config):
 
     llm_config: LLMConfig = field(
         default_factory=lambda: LLMConfig(sub_config=True),
+        metadata={"export": False}
+    )
+    emb_config: EmbeddingConfig = field(
+        default_factory=lambda: EmbeddingConfig(sub_config=True),
         metadata={"export": False}
     )

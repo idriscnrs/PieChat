@@ -142,7 +142,14 @@ class PieChat:
         return "sources with their scores:\n" + sources
 
     async def chat(
-        self, message, history, temperature, max_tokens, retrieval_threshold
+        self,
+        message,
+        history,
+        temperature,
+        max_tokens,
+        retrieval_threshold,
+        n_retrieved_docs,
+        coef_rerank_retrieve_docs
     ):
         sampling_params = SamplingParams(
             temperature=temperature,
@@ -155,7 +162,9 @@ class PieChat:
             if len(history) > 0 else ""
         )
         self.last_query = query  # Save the last query for dpo training
-        retrieved_docs = self.get_retrived_docs(query, retrieval_threshold)
+        retrieved_docs = self.get_retrived_docs(
+            query, retrieval_threshold, n_retrieved_docs, coef_rerank_retrieve_docs
+        )
 
         if len(retrieved_docs) == 0:
             no_doc_message = "No relevant documents found. Please retry with another "
@@ -177,7 +186,6 @@ class PieChat:
 
             self.last_generation = request_output.outputs[0].text
 
-            sources = self.get_sources()
-            chat_out = request_output.outputs[0].text  # + "\n"*2 + sources
+            chat_out = request_output.outputs[0].text
 
             yield chat_out

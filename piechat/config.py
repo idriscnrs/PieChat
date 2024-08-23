@@ -157,6 +157,9 @@ class EmbeddingConfig(Config):
     attn_implementation: str = field(
         default="flash_attention_2", metadata={"converter": str, "export": True}
     )
+    emb_precision: str = field(
+        default="float16", metadata={"converter": str, "export": True}
+    )
 
 
 @dataclass(kw_only=True)
@@ -172,6 +175,9 @@ class RerankerConfig(Config):
     reranker_guide: str = field(
         default="Retrieve relevant passages that help to answer the query.",
         metadata={"converter": str, "export": True}
+    )
+    reranker_precision: str = field(
+        default="float16", metadata={"converter": str, "export": True}
     )
 
 

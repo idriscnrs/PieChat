@@ -35,7 +35,7 @@ class PieChat:
                 "trust_remote_code": not emb_config.no_trust_remote_code,
                 "model_kwargs": {
                     "attn_implementation": emb_config.attn_implementation,
-                    "torch_dtype": torch.float16
+                    "torch_dtype": getattr(torch, emb_config.emb_precision),
                 }
             },
         )
@@ -47,7 +47,9 @@ class PieChat:
         self.reranker = SentenceTransformer(
             str(reranker_config.reranker_path),
             device=f"cuda:{reranker_config.reranker_device_id}",
-            model_kwargs={"torch_dtype": torch.float16}
+            model_kwargs={
+                "torch_dtype": getattr(torch, reranker_config.reranker_precision)
+            }
         )
 
         self.reranker_config = reranker_config

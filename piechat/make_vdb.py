@@ -62,7 +62,7 @@ def create_vdb(
             "trust_remote_code": not emb_config.no_trust_remote_code,
             "model_kwargs": {
                 "attn_implementation": emb_config.attn_implementation,
-                "torch_dtype": torch.float16
+                "torch_dtype": getattr(torch, emb_config.emb_precision)
             }
         },
     )

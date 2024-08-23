@@ -50,6 +50,7 @@ class PieChat:
             device=f"cuda:{reranker_config.reranker_device_id}",
             model_kwargs={"torch_dtype": torch.float16}
         )
+        self.last_docs_to_pull = None
 
     def rerank(self, query, docs, retrieval_threshold):
         # Prepare a prompt given an instruction
@@ -85,6 +86,7 @@ class PieChat:
 
         # docs = [(doc, score) for doc, score in docs if score > retrieval_threshold]
         self.last_docs = docs
+        self.last_docs_to_pull = docs
         return docs
 
     def remove_source(self, text):
@@ -171,6 +173,6 @@ class PieChat:
             self.last_generation = request_output.outputs[0].text
 
             sources = self.get_sources()
-            chat_out = request_output.outputs[0].text + "\n"*2 + sources
+            chat_out = request_output.outputs[0].text  # + "\n"*2 + sources
 
             yield chat_out

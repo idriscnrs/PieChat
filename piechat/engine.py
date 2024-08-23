@@ -50,10 +50,12 @@ class PieChat:
             model_kwargs={"torch_dtype": torch.float16}
         )
 
+        self.reranker_config = reranker_config
+        self.llm_config = llm_config
+
     def rerank(self, query, docs, retrieval_threshold):
         # Prepare a prompt given an instruction
-        instruction = 'Given an instruction or a question, retrieve relevant passages that help to answer the query. The relevant passage should be the same language than the instruction or question.'
-        prompt = f'<instruct>{instruction}\n<query>'
+        prompt = f'<instruct>{self.reranker_config.reranker_guide}\n<query>'
 
         # Compute the query and document embeddings
         query_embeddings = self.reranker.encode(query, prompt=prompt)
@@ -96,13 +98,7 @@ class PieChat:
     def get_llm_input(self, message, docs, history):
         retrieved_infos = " ".join([doc[0].page_content for doc in docs])
 
-        header = (
-            "<|begin_of_text|><|start_header_id|>You are a chatbot that help Jean Zay "
-            + "users. Jean Zay is the supercomputer hosted by IDRIS-CNRS. The users "
-            + "speaks French or English and you should answer with the same language."
-            + "You should answer the question using the <|retrieved_info|>."
-            + "<|end_header_id|>\n"
-        )
+        header = self.llm_config.llm_header + "\n"
 
         retrieved_str = f"<|retrieved_info|>: {retrieved_infos}\n"
 

@@ -5,9 +5,10 @@ import idr_torch
 import torch
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
+from sentence_transformers import SentenceTransformer
 from vllm import AsyncEngineArgs, AsyncLLMEngine, SamplingParams
 
-from .config import LLMConfig, EmbeddingConfig
+from .config import LLMConfig, EmbeddingConfig, RerankerConfig
 
 
 class PieChat:
@@ -15,7 +16,8 @@ class PieChat:
         self,
         vdb_path: Path,
         llm_config: LLMConfig,
-        emb_config: EmbeddingConfig
+        emb_config: EmbeddingConfig,
+        reranker_config: RerankerConfig,
     ):
         llm_args = AsyncEngineArgs(
             model=str(llm_config.llm_path),
@@ -30,11 +32,12 @@ class PieChat:
         self.embedding = HuggingFaceEmbeddings(
             model_name=str(emb_config.embedding_path),  # Does not accept Path
             model_kwargs={
-                "device": f"cuda:{emb_config.device_id}",
+                "device": f"cuda:{emb_config.emb_device_id}",
                 "trust_remote_code": not emb_config.no_trust_remote_code,
-                # "model_kwargs": {
-                #     "attn_implementation": emb_config.attn_implementation,
-                # } 
+                "model_kwargs": {
+                    "attn_implementation": emb_config.attn_implementation,
+                    "torch_dtype": torch.float16
+                } 
             },
         )
         self.vectordb = Chroma(
@@ -42,21 +45,50 @@ class PieChat:
             persist_directory=str(vdb_path)
         )
 
-    def get_retrived_docs(self, message, retrieval_threshold):
-        docs = self.vectordb.similarity_search_with_relevance_scores(message, k=8)
+        self.reranker = SentenceTransformer(
+            str(reranker_config.reranker_path),
+            device=f"cuda:{reranker_config.reranker_device_id}",
+            model_kwargs={"torch_dtype": torch.float16}
+        )
+
+    def rerank(self, query, docs, retrieval_threshold):
+        # Prepare a prompt given an instruction
+        instruction = 'Given an instruction or a question, retrieve relevant passages that help to answer the query. The relevant passage should be the same language than the instruction or question.'
+        prompt = f'<instruct>{instruction}\n<query>'
+
+        # Compute the query and document embeddings
+        query_embeddings = self.reranker.encode(query, prompt=prompt)
+        print("#"*10, 0, docs)
+        document_embeddings = self.reranker.encode([doc[0].page_content for doc in docs])  # Get just text, no retrieval score
+
+        # Compute the cosine similarity between the query and document embeddings
+        similarities = self.reranker.similarity(query_embeddings, document_embeddings)[0]
+        best_scores, best_indices = torch.topk(similarities, 8)
+        docs = [
+            (docs[best_indices[i]][0], (docs[best_indices[i]][1], best_scores[i]))
+            for i in range(len(best_indices)) if best_scores[i] > retrieval_threshold
+        ]
+        return docs
+
+    def get_retrived_docs(self, query, retrieval_threshold):
+        docs = self.vectordb.similarity_search_with_relevance_scores(query, k=32)
+
+        docs = self.rerank(query, docs, retrieval_threshold)
         self.last_retrieved_docs = [
             {
                 "metadata": doc[0].metadata,
                 "content": doc[0].page_content,
-                "score": doc[1]
+                "retrieval score": doc[1][0],
+                "rerank score": doc[1][1],
             } for doc in docs
         ]  # Save the last retrieved docs for dpo training
-        print("#"*10, idr_torch.rank, docs)
-        docs = [(doc, score) for doc, score in docs if score > retrieval_threshold]
+
+        # docs = [(doc, score) for doc, score in docs if score > retrieval_threshold]
+        self.last_docs = docs
         return docs
 
     def remove_source(self, text):
-        return re.sub(r'\n\nsources:\n.*', '', text, flags=re.DOTALL)
+        return re.sub(r'\n\nsources with their scores:\n.*', '', text, flags=re.DOTALL)
 
     def get_llm_input(self, message, docs, history):
         retrieved_infos = " ".join([doc[0].page_content for doc in docs])
@@ -87,13 +119,17 @@ class PieChat:
         print(text_input)
         return text_input
 
-    def get_sources(self, docs):
+    def get_sources(self):
+        sorted_sources = [
+            f"{doc[0].metadata['source']} retrieval_score={doc[1][0]} rerank_score{doc[1][1]}"
+            for doc in self.last_docs
+        ]
         # Extract source and score, and sort by score
-        sorted_sources = sorted(
-            [f"{doc[0].metadata['source']} {doc[1]}" for doc in docs],
-            key=lambda x: float(x.split()[-1]),  # The score is the last element
-            reverse=True  # Sort in descending order
-        )
+        # sorted_sources = sorted(
+        #     [f"{doc[0].metadata['source']} {doc[1]}" for doc in docs],
+        #     key=lambda x: float(x.split()[-1]),  # The score is the last element
+        #     reverse=True  # Sort in descending order
+        # )
 
         sources = "\n".join(sorted_sources)
         return "sources with their scores:\n" + sources
@@ -134,7 +170,7 @@ class PieChat:
 
             self.last_generation = request_output.outputs[0].text
 
-            sources = self.get_sources(retrieved_docs)
+            sources = self.get_sources()
             chat_out = request_output.outputs[0].text + "\n"*2 + sources
 
             yield chat_out

@@ -14,7 +14,8 @@ def run():
         pie_chat = PieChat(
             **config.export(),
             llm_config=config.llm_config,
-            emb_config=config.emb_config
+            emb_config=config.emb_config,
+            reranker_config=config.reranker_config
         )
         config.like_data_path.mkdir(exist_ok=True)
         launch_gradio(pie_chat, config)

@@ -143,7 +143,7 @@ class EmbeddingConfig(Config):
     embedding_path: Path = field(
         default="", metadata={"converter": Path, "export": True}
     )
-    device_id: int = field(
+    emb_device_id: int = field(
         default=0, metadata={"converter": int, "export": True}
     )
     no_trust_remote_code: bool = field(
@@ -151,6 +151,18 @@ class EmbeddingConfig(Config):
     )
     attn_implementation: str = field(
         default="flash_attention_2", metadata={"converter": str, "export": True}
+    )
+
+
+@dataclass(kw_only=True)
+class RerankerConfig(Config):
+    config_name: str = "RERANKER"
+
+    reranker_path: Path = field(
+        default=Path.cwd() / "reranker", metadata={"converter": Path, "export": True}
+    )
+    reranker_device_id: int = field(
+        default=0, metadata={"converter": int, "export": True}
     )
 
 
@@ -183,5 +195,9 @@ class GlobalConfig(Config):
     )
     emb_config: EmbeddingConfig = field(
         default_factory=lambda: EmbeddingConfig(sub_config=True),
+        metadata={"export": False}
+    )
+    reranker_config: RerankerConfig = field(
+        default_factory=lambda: RerankerConfig(sub_config=True),
         metadata={"export": False}
     )

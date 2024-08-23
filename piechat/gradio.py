@@ -73,6 +73,18 @@ def launch_gradio(piechat: PieChat, config: GlobalConfig):
                     value=config.retrieval_threshold,
                     label="Similarity Retrieval Threshold"
                 )
+                n_retrieved_docs = gr.Slider(
+                    minimum=1,
+                    maximum=100,
+                    value=config.n_retrieved_docs,
+                    label="Maximum number of Retrieved Docs to give to the llm"
+                )
+                coef_rerank_retrieve_docs = gr.Slider(
+                    minimum=1.0,
+                    maximum=10.0,
+                    value=config.coef_rerank_retrieve_docs,
+                    label="This coef x max docs for llm is the  nb of Docs to rerank"
+                )
 
             with gr.Column(scale=3):
                 chatbot = gr.Chatbot(
@@ -101,7 +113,13 @@ def launch_gradio(piechat: PieChat, config: GlobalConfig):
                     chatbot=chatbot,
                     textbox=inputRequestGradioComponent,
                     submit_btn=submitButton,
-                    additional_inputs=[temperature, max_tokens, retrieval_threshold]
+                    additional_inputs=[
+                        temperature,
+                        max_tokens,
+                        retrieval_threshold,
+                        n_retrieved_docs,
+                        coef_rerank_retrieve_docs
+                    ]
                 )
 
                 ragSourcesGradioComponent = gr.Textbox(label="Rag sources")

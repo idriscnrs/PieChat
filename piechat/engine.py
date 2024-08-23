@@ -1,14 +1,13 @@
 import re
 from pathlib import Path
 
-import idr_torch
 import torch
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
 from sentence_transformers import SentenceTransformer
 from vllm import AsyncEngineArgs, AsyncLLMEngine, SamplingParams
 
-from .config import LLMConfig, EmbeddingConfig, RerankerConfig
+from .config import EmbeddingConfig, LLMConfig, RerankerConfig
 
 
 class PieChat:
@@ -37,7 +36,7 @@ class PieChat:
                 "model_kwargs": {
                     "attn_implementation": emb_config.attn_implementation,
                     "torch_dtype": torch.float16
-                } 
+                }
             },
         )
         self.vectordb = Chroma(
@@ -59,10 +58,14 @@ class PieChat:
         # Compute the query and document embeddings
         query_embeddings = self.reranker.encode(query, prompt=prompt)
         print("#"*10, 0, docs)
-        document_embeddings = self.reranker.encode([doc[0].page_content for doc in docs])  # Get just text, no retrieval score
+        document_embeddings = self.reranker.encode(
+            [doc[0].page_content for doc in docs]  # Get just text, no retrieval score
+        )
 
         # Compute the cosine similarity between the query and document embeddings
-        similarities = self.reranker.similarity(query_embeddings, document_embeddings)[0]
+        similarities = self.reranker.similarity(
+            query_embeddings, document_embeddings
+        )[0]
         best_scores, best_indices = torch.topk(similarities, 8)
         docs = [
             (docs[best_indices[i]][0], (docs[best_indices[i]][1], best_scores[i]))
@@ -121,7 +124,8 @@ class PieChat:
 
     def get_sources(self):
         sorted_sources = [
-            f"{doc[0].metadata['source']} retrieval_score={doc[1][0]} rerank_score{doc[1][1]}"
+            f"{doc[0].metadata['source']} retrieval_score={doc[1][0]} "
+            + f"rerank_score{doc[1][1]}"
             for doc in self.last_docs
         ]
         # Extract source and score, and sort by score

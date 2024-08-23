@@ -2,15 +2,15 @@ from pathlib import Path
 
 import pandas as pd
 import torch
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import (
     MarkdownHeaderTextSplitter,
     RecursiveCharacterTextSplitter,
 )
 from transformers import AutoTokenizer
 
-from .config import GlobalConfig, EmbeddingConfig
+from .config import EmbeddingConfig, GlobalConfig
 
 
 def split_markdown(

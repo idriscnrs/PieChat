@@ -12,7 +12,7 @@ def run():
         make_vdb(config)
     else:
         pie_chat = PieChat(
-            **config.export(),
+            vdb_path=config.vdb_config.vdb_path,
             llm_config=config.llm_config,
             emb_config=config.emb_config,
             reranker_config=config.reranker_config

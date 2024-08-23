@@ -10,11 +10,11 @@ from langchain_text_splitters import (
 )
 from transformers import AutoTokenizer
 
-from .config import EmbeddingConfig, GlobalConfig
+from .config import EmbeddingConfig, GlobalConfig, VDBConfig
 
 
 def split_markdown(
-    meta_df: pd.DataFrame, embedding_path: Path, data_path: Path
+    meta_df: pd.DataFrame, embedding_path: Path, vdb_config: VDBConfig
 ):
     print("Splitting markdown files")
     headers_to_split_on = [
@@ -27,8 +27,8 @@ def split_markdown(
     )
     r_splitter = RecursiveCharacterTextSplitter.from_huggingface_tokenizer(
         tokenizer=tokenizer,
-        chunk_size=500,
-        chunk_overlap=100,
+        chunk_size=vdb_config.max_tokens_per_chunk,
+        chunk_overlap=vdb_config.nb_tokens_chunk_overlap,
         separators=["\n\n", "\n", r"(?<=\. )", " ", ""]
     )
 
@@ -37,7 +37,7 @@ def split_markdown(
         if row.isnull()["markdown_path"]:
             continue
 
-        md_str = (data_path / row.markdown_path).read_text()
+        md_str = (vdb_config.data_path / row.markdown_path).read_text()
         if md_str != "None":
             splitted_md = md_splitter.split_text(md_str)
             for doc in splitted_md:
@@ -52,7 +52,7 @@ def split_markdown(
 
 
 def create_vdb(
-    docs: list, emb_config: EmbeddingConfig, vdb_path: Path
+    docs: list, emb_config: EmbeddingConfig, vdb_config: VDBConfig
 ):
     """Create a vector database from the documents"""
     embedding = HuggingFaceEmbeddings(
@@ -63,25 +63,25 @@ def create_vdb(
             "model_kwargs": {
                 "attn_implementation": emb_config.attn_implementation,
                 "torch_dtype": torch.float16
-            } 
+            }
         },
     )
 
-    if vdb_path.exists():
-        if any(vdb_path.iterdir()):
+    if vdb_config.vdb_path.exists():
+        if any(vdb_config.vdb_path.iterdir()):
             raise FileExistsError(
-                f"Vector database directory {vdb_path} is not empty"
+                f"Vector database directory {vdb_config.vdb_path} is not empty"
             )
     else:
-        vdb_path.mkdir(parents=True)
+        vdb_config.vdb_path.mkdir(parents=True)
 
     vectordb = Chroma.from_documents(
         documents=docs,
         embedding=embedding,
-        persist_directory=str(vdb_path),  # Does not accept Path
+        persist_directory=str(vdb_config.vdb_path),  # Does not accept Path
     )
 
-    print(f"vector database created in {vdb_path}")
+    print(f"vector database created in {vdb_config.vdb_path}")
     return vectordb
 
 
@@ -91,11 +91,11 @@ def make_vdb(config: GlobalConfig):
     docs = split_markdown(
         meta_df=meta_df,
         embedding_path=config.emb_config.embedding_path,
-        data_path=config.data_path
+        vdb_config=config.vdb_config
     )
 
     create_vdb(
         docs=docs,
         emb_config=config.emb_config,
-        vdb_path=config.vdb_path
+        vdb_config=config.vdb_config
     )

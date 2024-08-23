@@ -176,8 +176,8 @@ class RerankerConfig(Config):
 
 
 @dataclass(kw_only=True)
-class GlobalConfig(Config):
-    config_name: str = "GLOBAL"
+class VDBConfig(Config):
+    config_name: str = "VDB"
 
     vdb_path: Path = field(
         default=Path.cwd() / "vdb", metadata={"converter": Path, "export": True}
@@ -185,6 +185,19 @@ class GlobalConfig(Config):
     data_path: Path = field(
         default=Path.cwd() / "data", metadata={"converter": Path, "export": False}
     )
+
+    max_tokens_per_chunk: int = field(
+        default=512, metadata={"converter": int, "export": True}
+    )
+    nb_tokens_chunk_overlap: int = field(
+        default=128, metadata={"converter": int, "export": True}
+    )
+
+
+@dataclass(kw_only=True)
+class GlobalConfig(Config):
+    config_name: str = "GLOBAL"
+
     system_prompts_path: Path = field(
         default=Path.cwd() / "system_prompts.txt",
         metadata={"converter": Path, "export": False}
@@ -212,6 +225,10 @@ class GlobalConfig(Config):
     )
     reranker_config: RerankerConfig = field(
         default_factory=lambda: RerankerConfig(sub_config=True),
+        metadata={"export": False}
+    )
+    vdb_config: VDBConfig = field(
+        default_factory=lambda: VDBConfig(sub_config=True),
         metadata={"export": False}
     )
 

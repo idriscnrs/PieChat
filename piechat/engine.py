@@ -173,6 +173,6 @@ class PieChat:
             self.last_generation = request_output.outputs[0].text
 
             sources = self.get_sources()
-            chat_out = request_output.outputs[0].text + "\n"*2 + sources
+            chat_out = request_output.outputs[0].text  # + "\n"*2 + sources
 
             yield chat_out

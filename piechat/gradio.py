@@ -17,12 +17,17 @@ def await_rag_sources(piechat: PieChat):
 
     def wrapped():
         while True:
-            try:
-                sources = piechat.get_sources()
-            except AttributeError:
+            sources = piechat.last_docs_to_pull
+            if sources is None:
                 time.sleep(0.25)
             else:
-                return "\n".join(sources.split("\n")[1:])
+                piechat.last_docs_to_pull = None
+                break
+        docs = [
+            f"{doc[0].metadata['source']} retrieval_score={doc[1][0]} rerank_score={doc[1][1]}"
+            for doc in sources
+        ]
+        return "\n".join(docs)
 
     return wrapped
 

@@ -69,43 +69,41 @@ def launch_gradio(piechat: PieChat, config: GlobalConfig):
                 )
     
             with gr.Column(scale=3):
-                with gr.Row():
-                    chatbot = gr.Chatbot(
-                        placeholder=WELCOME_MESSAGE
-                    )
-    
-                    def save_like_data(data: gr.LikeData):
-                        like_element = {
-                            "query": piechat.last_query,
-                            "generation": piechat.last_generation,
-                            "retrieved_docs": piechat.last_retrieved_docs,
-                            "history": piechat.last_history,
-                            "like": data.liked,
-                            "config": config.export_config()
-                        }
-    
-                        # Save the like data in a json, the name is the current timestamp
-                        with open(
-                            config.like_data_path / f"{datetime.now()}.json", "w"
-                        ) as f:
-                            json.dump(like_element, f, ensure_ascii=False)
-    
-                    chatbot.like(save_like_data, None, None)
-                    gr.ChatInterface(
-                        piechat.chat,
-                        chatbot=chatbot,
-                        textbox=inputRequestGradioComponent,
-                        submit_btn=submitButton,
-                        additional_inputs=[temperature, max_tokens, retrieval_threshold]
-                    )
-    
-                with gr.Row():
-                    ragSourcesGradioComponent = gr.Textbox(label="Rag sources")
+                chatbot = gr.Chatbot(
+                    placeholder=WELCOME_MESSAGE
+                )
 
-                    gr.on(
-                        triggers=[submitButton.click, inputRequestGradioComponent.submit],
-                        fn=await_rag_sources(piechat),
-                        outputs=[ragSourcesGradioComponent],
-                    )
+                def save_like_data(data: gr.LikeData):
+                    like_element = {
+                        "query": piechat.last_query,
+                        "generation": piechat.last_generation,
+                        "retrieved_docs": piechat.last_retrieved_docs,
+                        "history": piechat.last_history,
+                        "like": data.liked,
+                        "config": config.export_config()
+                    }
+
+                    # Save the like data in a json, the name is the current timestamp
+                    with open(
+                        config.like_data_path / f"{datetime.now()}.json", "w"
+                    ) as f:
+                        json.dump(like_element, f, ensure_ascii=False)
+
+                chatbot.like(save_like_data, None, None)
+                gr.ChatInterface(
+                    piechat.chat,
+                    chatbot=chatbot,
+                    textbox=inputRequestGradioComponent,
+                    submit_btn=submitButton,
+                    additional_inputs=[temperature, max_tokens, retrieval_threshold]
+                )
+    
+                ragSourcesGradioComponent = gr.Textbox(label="Rag sources")
+
+                gr.on(
+                    triggers=[submitButton.click, inputRequestGradioComponent.submit],
+                    fn=await_rag_sources(piechat),
+                    outputs=[ragSourcesGradioComponent],
+                )
 
     demo.launch(share=True)

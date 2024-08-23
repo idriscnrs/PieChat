@@ -51,6 +51,7 @@ class PieChat:
                 "torch_dtype": getattr(torch, reranker_config.reranker_precision)
             }
         )
+        self.last_docs_to_pull = None
 
         self.reranker_config = reranker_config
         self.llm_config = llm_config
@@ -95,6 +96,7 @@ class PieChat:
 
         # docs = [(doc, score) for doc, score in docs if score > retrieval_threshold]
         self.last_docs = docs
+        self.last_docs_to_pull = docs
         return docs
 
     def remove_source(self, text):
@@ -176,6 +178,6 @@ class PieChat:
             self.last_generation = request_output.outputs[0].text
 
             sources = self.get_sources()
-            chat_out = request_output.outputs[0].text + "\n"*2 + sources
+            chat_out = request_output.outputs[0].text  # + "\n"*2 + sources
 
             yield chat_out

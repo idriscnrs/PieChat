@@ -1,4 +1,5 @@
 import json
+import time
 from datetime import datetime
 
 import gradio as gr
@@ -12,7 +13,39 @@ PieChat - Votre assistant à l'utilisation de Jean Zay
 Vous pouvez lui faire confiance à 100%, il ne se trompe jamais."""
 
 
+def await_rag_sources(piechat: PieChat):
+
+    def wrapped():
+        while True:
+            try:
+                sources = piechat.get_sources()
+            except AttributeError:
+                time.sleep(0.25)
+            else:
+                return "\n".join(sources.split("\n")[1:])
+
+    return wrapped
+
+
 def launch_gradio(piechat: PieChat, config: GlobalConfig):
+
+    submitButton = gr.Button(
+        "Submit",
+        variant="primary",
+        scale=1,
+        min_width=150,
+        render=False,
+    )
+    inputRequestGradioComponent = gr.Textbox(
+        container=False,
+        show_label=False,
+        label="Message",
+        placeholder="Type a message...",
+        scale=7,
+        autofocus=True,
+        render=False,
+    )
+
     with gr.Blocks() as demo:
         with gr.Row():
             with gr.Column(scale=1):
@@ -61,12 +94,18 @@ def launch_gradio(piechat: PieChat, config: GlobalConfig):
                     gr.ChatInterface(
                         piechat.chat,
                         chatbot=chatbot,
+                        textbox=inputRequestGradioComponent,
+                        submit_btn=submitButton,
                         additional_inputs=[temperature, max_tokens, retrieval_threshold]
                     )
     
                 with gr.Row():
-                    ragSourceGradioComponent = gr.Textbox(label="Rag sources")
-                    chatbot.change(piechat.get_sources, outputs=[ragSourceGradioComponent])
-                
+                    ragSourcesGradioComponent = gr.Textbox(label="Rag sources")
+
+                    gr.on(
+                        triggers=[submitButton.click, inputRequestGradioComponent.submit],
+                        fn=await_rag_sources(piechat),
+                        outputs=[ragSourcesGradioComponent],
+                    )
 
     demo.launch(share=True)

@@ -55,13 +55,12 @@ class PieChat:
         self.reranker_config = reranker_config
         self.llm_config = llm_config
 
-    def rerank(self, query, docs, retrieval_threshold):
+    def rerank(self, query, docs, retrieval_threshold, n_retrieved_docs):
         # Prepare a prompt given an instruction
         prompt = f'<instruct>{self.reranker_config.reranker_guide}\n<query>'
 
         # Compute the query and document embeddings
         query_embeddings = self.reranker.encode(query, prompt=prompt)
-        print("#"*10, 0, docs)
         document_embeddings = self.reranker.encode(
             [doc[0].page_content for doc in docs]  # Get just text, no retrieval score
         )
@@ -70,17 +69,21 @@ class PieChat:
         similarities = self.reranker.similarity(
             query_embeddings, document_embeddings
         )[0]
-        best_scores, best_indices = torch.topk(similarities, 8)
+        best_scores, best_indices = torch.topk(similarities, n_retrieved_docs)
         docs = [
             (docs[best_indices[i]][0], (docs[best_indices[i]][1], best_scores[i]))
             for i in range(len(best_indices)) if best_scores[i] > retrieval_threshold
         ]
         return docs
 
-    def get_retrived_docs(self, query, retrieval_threshold):
-        docs = self.vectordb.similarity_search_with_relevance_scores(query, k=32)
+    def get_retrived_docs(
+        self, query, retrieval_threshold, n_retrieved_docs, coef_rerank_retrieve_docs
+    ):
+        docs = self.vectordb.similarity_search_with_relevance_scores(
+            query, k=int(n_retrieved_docs * coef_rerank_retrieve_docs)
+        )
 
-        docs = self.rerank(query, docs, retrieval_threshold)
+        docs = self.rerank(query, docs, retrieval_threshold, n_retrieved_docs)
         self.last_retrieved_docs = [
             {
                 "metadata": doc[0].metadata,

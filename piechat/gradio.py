@@ -34,13 +34,13 @@ def launch_gradio(piechat: PieChat, config: GlobalConfig):
                     value=config.retrieval_threshold,
                     label="Similarity Retrieval Threshold"
                 )
-    
+
             with gr.Column(scale=3):
                 with gr.Row():
                     chatbot = gr.Chatbot(
                         placeholder=WELCOME_MESSAGE
                     )
-    
+
                     def save_like_data(data: gr.LikeData):
                         like_element = {
                             "query": piechat.last_query,
@@ -50,23 +50,28 @@ def launch_gradio(piechat: PieChat, config: GlobalConfig):
                             "like": data.liked,
                             "config": config.export_config()
                         }
-    
+
                         # Save the like data in a json, the name is the current timestamp
                         with open(
                             config.like_data_path / f"{datetime.now()}.json", "w"
                         ) as f:
                             json.dump(like_element, f, ensure_ascii=False)
-    
+
                     chatbot.like(save_like_data, None, None)
                     gr.ChatInterface(
                         piechat.chat,
                         chatbot=chatbot,
-                        additional_inputs=[temperature, max_tokens, retrieval_threshold]
+                        additional_inputs=[
+                            temperature,
+                            max_tokens,
+                            retrieval_threshold,
+                            config.n_retrieved_docs,
+                            config.coef_rerank_retrieve_docs
+                        ]
                     )
-    
+
                 with gr.Row():
                     ragSourceGradioComponent = gr.Textbox(label="Rag sources")
                     chatbot.change(piechat.get_sources, outputs=[ragSourceGradioComponent])
-                
 
     demo.launch(share=True)

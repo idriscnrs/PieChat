@@ -212,6 +212,12 @@ class GlobalConfig(Config):
     retrieval_threshold: float = field(
         default=0.2, metadata={"converter": float, "export": False}
     )
+    n_retrieved_docs: int = field(
+        default=8, metadata={"converter": int, "export": False}
+    )
+    coef_rerank_retrieve_docs: float = field(
+        default=4.0, metadata={"converter": float, "export": True}
+    )
 
     make_vdb: bool = field(
         default=False, metadata={"converter": bool, "export": False}

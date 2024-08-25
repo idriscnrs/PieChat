@@ -55,36 +55,48 @@ def launch_gradio(piechat: PieChat, config: GlobalConfig):
     with gr.Blocks() as demo:
         with gr.Row():
             with gr.Column(scale=1):
-                temperature = gr.Slider(
-                    minimum=0.0,
-                    maximum=2.0,
-                    value=config.llm_config.temperature,
-                    label="Temperature"
-                )
-                max_tokens = gr.Slider(
-                    minimum=1,
-                    maximum=4096,
-                    value=config.llm_config.max_tokens,
-                    label="Max Tokens"
-                )
-                retrieval_threshold = gr.Slider(
-                    minimum=-1.0,
-                    maximum=1.0,
-                    value=config.retrieval_threshold,
-                    label="Similarity Retrieval Threshold"
-                )
-                n_retrieved_docs = gr.Slider(
-                    minimum=1,
-                    maximum=100,
-                    value=config.n_retrieved_docs,
-                    label="Maximum number of Retrieved Docs to give to the llm"
-                )
-                coef_rerank_retrieve_docs = gr.Slider(
-                    minimum=1.0,
-                    maximum=10.0,
-                    value=config.coef_rerank_retrieve_docs,
-                    label="This coef x max docs for llm is the  nb of Docs to rerank"
-                )
+                additional_inputs = [
+                    gr.Slider(
+                        minimum=0.0,
+                        maximum=2.0,
+                        value=config.llm_config.temperature,
+                        label="Temperature"
+                    ),
+                    gr.Slider(
+                        minimum=1,
+                        maximum=4096,
+                        value=config.llm_config.max_tokens,
+                        label="Max Tokens"
+                    ),
+                    gr.Slider(
+                        minimum=-1.0,
+                        maximum=1.0,
+                        value=config.retrieval_threshold,
+                        label="Similarity Retrieval Threshold"
+                    ),
+                    gr.Slider(
+                        minimum=1,
+                        maximum=100,
+                        value=config.n_retrieved_docs,
+                        label="Maximum number of Retrieved Docs to give to the llm"
+                    ),
+                    gr.Slider(
+                        minimum=1.0,
+                        maximum=10.0,
+                        value=config.coef_rerank_retrieve_docs,
+                        label="This coef x max docs for llm is the nb of Docs to rerank"
+                    )
+                ]
+
+                if not config.reranker_config.no_rerank:
+                    # Add the activation reranker button
+                    additional_inputs.append(
+                        gr.Checkbox(
+                            label="Activate reranker",
+                            default=True,
+                            scale=1
+                        )
+                    )
 
             with gr.Column(scale=3):
                 chatbot = gr.Chatbot(
@@ -113,13 +125,7 @@ def launch_gradio(piechat: PieChat, config: GlobalConfig):
                     chatbot=chatbot,
                     textbox=inputRequestGradioComponent,
                     submit_btn=submitButton,
-                    additional_inputs=[
-                        temperature,
-                        max_tokens,
-                        retrieval_threshold,
-                        n_retrieved_docs,
-                        coef_rerank_retrieve_docs
-                    ]
+                    additional_inputs=additional_inputs
                 )
 
                 ragSourcesGradioComponent = gr.Textbox(label="Rag sources")

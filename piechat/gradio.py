@@ -92,8 +92,8 @@ def launch_gradio(piechat: PieChat, config: GlobalConfig):
                     # Add the activation reranker button
                     additional_inputs.append(
                         gr.Checkbox(
+                            value=True,
                             label="Activate reranker",
-                            default=True,
                             scale=1
                         )
                     )

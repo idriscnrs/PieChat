@@ -36,7 +36,7 @@ class PieChat:
         )
         self.vectordb = Chroma(
             embedding_function=self.embedding,
-            persist_directory=str(config.vdb_path)
+            persist_directory=str(config.vdb_config.vdb_path)
         )
 
         if not config.reranker_config.no_rerank:
@@ -55,8 +55,6 @@ class PieChat:
         self.config = config
         self.reranker_config = config.reranker_config
         self.llm_config = config.llm_config
-
-        self.name_save_file = datetime.now()  # here to prevent bug
 
     def rerank(self, query, docs, retrieval_threshold, n_retrieved_docs):
         # Prepare a prompt given an instruction
@@ -145,20 +143,21 @@ class PieChat:
         return text_input
 
     def save_chat(self, liked: bool | None = None):
-        like_element = {
-            "query": self.last_query,
-            "generation": self.last_generation,
-            "retrieved_docs": self.last_retrieved_docs,
-            "history": self.last_history,
-            "like": liked,
-            "config": self.config.export_config()
-        }
-
-        # Save the like data in a json, the name is the current timestamp
-        with open(
-            self.config.saved_data_path / f"{self.name_save_file}.json", "w"
-        ) as f:
-            json.dump(like_element, f, ensure_ascii=False)
+        if self.name_save_file is not None:
+            like_element = {
+                "query": self.last_query,
+                "generation": self.last_generation,
+                "retrieved_docs": self.last_retrieved_docs,
+                "history": self.last_history,
+                "like": liked,
+                "config": self.config.export_config()
+            }
+    
+            # Save the like data in a json, the name is the current timestamp
+            with open(
+                self.config.saved_data_path / f"{self.name_save_file}.json", "w"
+            ) as f:
+                json.dump(like_element, f, ensure_ascii=False)
 
     async def chat(
         self,
@@ -171,6 +170,8 @@ class PieChat:
         coef_rerank_retrieve_docs,
         rerank=False
     ):
+        self.name_save_file = None  # here to prevent bug
+
         sampling_params = SamplingParams(
             temperature=temperature,
             max_tokens=max_tokens,

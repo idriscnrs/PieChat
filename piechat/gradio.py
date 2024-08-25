@@ -102,7 +102,7 @@ def launch_gradio(piechat: PieChat, config: GlobalConfig):
                 )
 
                 def save_like_data(data: gr.LikeData):
-                    piechat.save_chat(data.like)
+                    piechat.save_chat(data.liked)
 
                 chatbot.like(save_like_data, None, None)
                 gr.ChatInterface(

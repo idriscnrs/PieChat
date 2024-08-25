@@ -86,7 +86,7 @@ def create_vdb(
 
 
 def make_vdb(config: GlobalConfig):
-    meta_df = pd.read_csv(config.data_path / "metadata.csv")
+    meta_df = pd.read_csv(config.vdb_config.data_path / "metadata.csv")
 
     docs = split_markdown(
         meta_df=meta_df,

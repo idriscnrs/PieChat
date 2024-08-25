@@ -74,7 +74,7 @@ class PieChat:
         )[0]
         best_scores, best_indices = torch.topk(similarities, n_retrieved_docs)
         docs = [
-            (docs[best_indices[i]][0], (docs[best_indices[i]][1], best_scores[i]))
+            (docs[best_indices[i]][0], (docs[best_indices[i]][1], best_scores[i].cpu().item()))
             for i in range(len(best_indices)) if best_scores[i] > retrieval_threshold
         ]
         return docs

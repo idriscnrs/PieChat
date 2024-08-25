@@ -179,6 +179,9 @@ class RerankerConfig(Config):
     reranker_precision: str = field(
         default="float16", metadata={"converter": str, "export": True}
     )
+    no_rerank: bool = field(
+        default=False, metadata={"converter": bool, "export": True}
+    )
 
 
 @dataclass(kw_only=True)

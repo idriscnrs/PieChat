@@ -44,13 +44,15 @@ class PieChat:
             persist_directory=str(vdb_path)
         )
 
-        self.reranker = SentenceTransformer(
-            str(reranker_config.reranker_path),
-            device=f"cuda:{reranker_config.reranker_device_id}",
-            model_kwargs={
-                "torch_dtype": getattr(torch, reranker_config.reranker_precision)
-            }
-        )
+        if not reranker_config.no_rerank:
+            self.reranker = SentenceTransformer(
+                str(reranker_config.reranker_path),
+                device=f"cuda:{reranker_config.reranker_device_id}",
+                model_kwargs={
+                    "torch_dtype": getattr(torch, reranker_config.reranker_precision)
+                }
+            )
+
         self.last_docs_to_pull = None
 
         self.reranker_config = reranker_config
@@ -78,13 +80,30 @@ class PieChat:
         return docs
 
     def get_retrived_docs(
-        self, query, retrieval_threshold, n_retrieved_docs, coef_rerank_retrieve_docs
+        self,
+        query,
+        retrieval_threshold,
+        n_retrieved_docs,
+        coef_rerank_retrieve_docs,
+        rerank
     ):
-        docs = self.vectordb.similarity_search_with_relevance_scores(
-            query, k=int(n_retrieved_docs * coef_rerank_retrieve_docs)
-        )
+        if rerank:
+            docs = self.vectordb.similarity_search_with_relevance_scores(
+                query, k=int(n_retrieved_docs * coef_rerank_retrieve_docs)
+            )
 
-        docs = self.rerank(query, docs, retrieval_threshold, n_retrieved_docs)
+            docs = self.rerank(query, docs, retrieval_threshold, n_retrieved_docs)
+
+        else:
+            docs = self.vectordb.similarity_search_with_relevance_scores(
+                query, k=n_retrieved_docs
+            )
+            docs = [
+                (doc, (score, "N/A"))
+                for doc, score in docs if score > retrieval_threshold
+            ]
+            docs = sorted(docs, key=lambda x: x[1][0], reverse=True)
+
         self.last_retrieved_docs = [
             {
                 "metadata": doc[0].metadata,
@@ -94,7 +113,6 @@ class PieChat:
             } for doc in docs
         ]  # Save the last retrieved docs for dpo training
 
-        # docs = [(doc, score) for doc, score in docs if score > retrieval_threshold]
         self.last_docs = docs
         self.last_docs_to_pull = docs
         return docs
@@ -131,12 +149,6 @@ class PieChat:
             + f"rerank_score{doc[1][1]}"
             for doc in self.last_docs
         ]
-        # Extract source and score, and sort by score
-        # sorted_sources = sorted(
-        #     [f"{doc[0].metadata['source']} {doc[1]}" for doc in docs],
-        #     key=lambda x: float(x.split()[-1]),  # The score is the last element
-        #     reverse=True  # Sort in descending order
-        # )
 
         sources = "\n".join(sorted_sources)
         return "sources with their scores:\n" + sources
@@ -149,7 +161,8 @@ class PieChat:
         max_tokens,
         retrieval_threshold,
         n_retrieved_docs,
-        coef_rerank_retrieve_docs
+        coef_rerank_retrieve_docs,
+        rerank=False
     ):
         sampling_params = SamplingParams(
             temperature=temperature,
@@ -163,7 +176,11 @@ class PieChat:
         )
         self.last_query = query  # Save the last query for dpo training
         retrieved_docs = self.get_retrived_docs(
-            query, retrieval_threshold, n_retrieved_docs, coef_rerank_retrieve_docs
+            query,
+            retrieval_threshold,
+            n_retrieved_docs,
+            coef_rerank_retrieve_docs,
+            rerank
         )
 
         if len(retrieved_docs) == 0:

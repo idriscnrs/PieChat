@@ -142,7 +142,6 @@ class PieChat:
         last_chat = f"<|user|>: {message}\n<|assistant|>:"
 
         text_input = header + retrieved_str + history_str + last_chat
-        print(text_input)
         return text_input
 
     def save_chat(self, liked: bool | None = None):
@@ -215,5 +214,6 @@ class PieChat:
 
             yield chat_out
 
+        print(f"Query: {self.last_query}\nResponse: {self.last_generation}")
         self.name_save_file = datetime.now()
         self.save_chat()

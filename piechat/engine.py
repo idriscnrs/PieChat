@@ -1,5 +1,6 @@
+import json
 import re
-from pathlib import Path
+from datetime import datetime
 
 import torch
 from langchain_chroma import Chroma
@@ -7,56 +8,55 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from sentence_transformers import SentenceTransformer
 from vllm import AsyncEngineArgs, AsyncLLMEngine, SamplingParams
 
-from .config import EmbeddingConfig, LLMConfig, RerankerConfig
+from .config import GlobalConfig
 
 
 class PieChat:
-    def __init__(
-        self,
-        vdb_path: Path,
-        llm_config: LLMConfig,
-        emb_config: EmbeddingConfig,
-        reranker_config: RerankerConfig,
-    ):
+    def __init__(self, config: GlobalConfig):
         llm_args = AsyncEngineArgs(
-            model=str(llm_config.llm_path),
-            max_model_len=llm_config.max_model_length,
-            dtype=llm_config.dtype,
-            gpu_memory_utilization=llm_config.gpu_memory_utilization,
-            tensor_parallel_size=llm_config.tensor_parallel_size
+            model=str(config.llm_config.llm_path),
+            max_model_len=config.llm_config.max_model_length,
+            dtype=config.llm_config.dtype,
+            gpu_memory_utilization=config.llm_config.gpu_memory_utilization,
+            tensor_parallel_size=config.llm_config.tensor_parallel_size
         )
         self.llm = AsyncLLMEngine.from_engine_args(llm_args)
-        self.llm_config = llm_config
+        self.llm_config = config.llm_config
 
         self.embedding = HuggingFaceEmbeddings(
-            model_name=str(emb_config.embedding_path),  # Does not accept Path
+            model_name=str(config.emb_config.embedding_path),  # Does not accept Path
             model_kwargs={
-                "device": emb_config.emb_device,
-                "trust_remote_code": not emb_config.no_trust_remote_code,
+                "device": config.emb_config.emb_device,
+                "trust_remote_code": not config.emb_config.no_trust_remote_code,
                 "model_kwargs": {
-                    "attn_implementation": emb_config.attn_implementation,
-                    "torch_dtype": getattr(torch, emb_config.emb_precision),
+                    "attn_implementation": config.emb_config.attn_implementation,
+                    "torch_dtype": getattr(torch, config.emb_config.emb_precision),
                 }
             },
         )
         self.vectordb = Chroma(
             embedding_function=self.embedding,
-            persist_directory=str(vdb_path)
+            persist_directory=str(config.vdb_path)
         )
 
-        if not reranker_config.no_rerank:
+        if not config.reranker_config.no_rerank:
             self.reranker = SentenceTransformer(
-                str(reranker_config.reranker_path),
-                device=reranker_config.reranker_device,
+                str(config.reranker_config.reranker_path),
+                device=config.reranker_config.reranker_device,
                 model_kwargs={
-                    "torch_dtype": getattr(torch, reranker_config.reranker_precision)
+                    "torch_dtype": getattr(
+                        torch, config.reranker_config.reranker_precision
+                    )
                 }
             )
 
         self.last_docs_to_pull = None
 
-        self.reranker_config = reranker_config
-        self.llm_config = llm_config
+        self.config = config
+        self.reranker_config = config.reranker_config
+        self.llm_config = config.llm_config
+
+        self.name_save_file = datetime.now()  # here to prevent bug
 
     def rerank(self, query, docs, retrieval_threshold, n_retrieved_docs):
         # Prepare a prompt given an instruction
@@ -145,6 +145,22 @@ class PieChat:
         print(text_input)
         return text_input
 
+    def save_chat(self, liked: bool | None = None):
+        like_element = {
+            "query": self.last_query,
+            "generation": self.last_generation,
+            "retrieved_docs": self.last_retrieved_docs,
+            "history": self.last_history,
+            "like": liked,
+            "config": self.config.export_config()
+        }
+
+        # Save the like data in a json, the name is the current timestamp
+        with open(
+            self.config.saved_data_path / f"{self.name_save_file}.json", "w"
+        ) as f:
+            json.dump(like_element, f, ensure_ascii=False)
+
     async def chat(
         self,
         message,
@@ -198,3 +214,6 @@ class PieChat:
             chat_out = request_output.outputs[0].text
 
             yield chat_out
+
+        self.name_save_file = datetime.now()
+        self.save_chat()

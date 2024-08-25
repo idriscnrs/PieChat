@@ -78,7 +78,7 @@ class Config:
                 if isinstance(config_value, Config):
                     sub_config_dict = {
                         f"{config_value.config_name.lower()}.{k}": v
-                        for k, v in config_value.export().items()
+                        for k, v in config_value.export(meta_filter).items()
                     }
                     config_dict.update(sub_config_dict)
                 else:
@@ -226,8 +226,8 @@ class GlobalConfig(Config):
         default=False, metadata={"converter": bool, "export": False}
     )
 
-    like_data_path: Path = field(
-        default=Path.cwd() / "like_data", metadata={"converter": Path, "export": False}
+    saved_data_path: Path = field(
+        default=Path.cwd() / "saved_data", metadata={"converter": Path, "export": False}
     )
 
     llm_config: LLMConfig = field(

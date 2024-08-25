@@ -1,6 +1,4 @@
-import json
 import time
-from datetime import datetime
 
 import gradio as gr
 
@@ -104,20 +102,7 @@ def launch_gradio(piechat: PieChat, config: GlobalConfig):
                 )
 
                 def save_like_data(data: gr.LikeData):
-                    like_element = {
-                        "query": piechat.last_query,
-                        "generation": piechat.last_generation,
-                        "retrieved_docs": piechat.last_retrieved_docs,
-                        "history": piechat.last_history,
-                        "like": data.liked,
-                        "config": config.export_config()
-                    }
-
-                    # Save the like data in a json, the name is the current timestamp
-                    with open(
-                        config.like_data_path / f"{datetime.now()}.json", "w"
-                    ) as f:
-                        json.dump(like_element, f, ensure_ascii=False)
+                    piechat.save_chat(data.like)
 
                 chatbot.like(save_like_data, None, None)
                 gr.ChatInterface(

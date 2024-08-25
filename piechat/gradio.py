@@ -1,6 +1,4 @@
-import json
 import time
-from datetime import datetime
 
 import gradio as gr
 
@@ -24,7 +22,8 @@ def await_rag_sources(piechat: PieChat):
                 piechat.last_docs_to_pull = None
                 break
         docs = [
-            f"{doc[0].metadata['source']} retrieval_score={doc[1][0]} rerank_score={doc[1][1]}"
+            f"{doc[0].metadata['source']} retrieval_score={doc[1][0]}"
+            + f" rerank_score={doc[1][1]}"
             for doc in sources
         ]
         return "\n".join(docs)
@@ -54,45 +53,56 @@ def launch_gradio(piechat: PieChat, config: GlobalConfig):
     with gr.Blocks() as demo:
         with gr.Row():
             with gr.Column(scale=1):
-                temperature = gr.Slider(
-                    minimum=0.0,
-                    maximum=2.0,
-                    value=config.llm_config.temperature,
-                    label="Temperature"
-                )
-                max_tokens = gr.Slider(
-                    minimum=1,
-                    maximum=4096,
-                    value=config.llm_config.max_tokens,
-                    label="Max Tokens"
-                )
-                retrieval_threshold = gr.Slider(
-                    minimum=-1.0,
-                    maximum=1.0,
-                    value=config.retrieval_threshold,
-                    label="Similarity Retrieval Threshold"
-                )
-    
+                additional_inputs = [
+                    gr.Slider(
+                        minimum=0.0,
+                        maximum=2.0,
+                        value=config.llm_config.temperature,
+                        label="Temperature"
+                    ),
+                    gr.Slider(
+                        minimum=1,
+                        maximum=4096,
+                        value=config.llm_config.max_tokens,
+                        label="Max Tokens"
+                    ),
+                    gr.Slider(
+                        minimum=-1.0,
+                        maximum=1.0,
+                        value=config.retrieval_threshold,
+                        label="Similarity Retrieval Threshold"
+                    ),
+                    gr.Slider(
+                        minimum=1,
+                        maximum=100,
+                        value=config.n_retrieved_docs,
+                        label="Maximum number of Retrieved Docs to give to the llm"
+                    ),
+                    gr.Slider(
+                        minimum=1.0,
+                        maximum=10.0,
+                        value=config.coef_rerank_retrieve_docs,
+                        label="This coef x max docs for llm is the nb of Docs to rerank"
+                    )
+                ]
+
+                if not config.reranker_config.no_rerank:
+                    # Add the activation reranker button
+                    additional_inputs.append(
+                        gr.Checkbox(
+                            value=True,
+                            label="Activate reranker",
+                            scale=1
+                        )
+                    )
+
             with gr.Column(scale=3):
                 chatbot = gr.Chatbot(
                     placeholder=WELCOME_MESSAGE
                 )
 
                 def save_like_data(data: gr.LikeData):
-                    like_element = {
-                        "query": piechat.last_query,
-                        "generation": piechat.last_generation,
-                        "retrieved_docs": piechat.last_retrieved_docs,
-                        "history": piechat.last_history,
-                        "like": data.liked,
-                        "config": config.export_config()
-                    }
-
-                    # Save the like data in a json, the name is the current timestamp
-                    with open(
-                        config.like_data_path / f"{datetime.now()}.json", "w"
-                    ) as f:
-                        json.dump(like_element, f, ensure_ascii=False)
+                    piechat.save_chat(data.liked)
 
                 chatbot.like(save_like_data, None, None)
                 gr.ChatInterface(
@@ -100,9 +110,9 @@ def launch_gradio(piechat: PieChat, config: GlobalConfig):
                     chatbot=chatbot,
                     textbox=inputRequestGradioComponent,
                     submit_btn=submitButton,
-                    additional_inputs=[temperature, max_tokens, retrieval_threshold]
+                    additional_inputs=additional_inputs
                 )
-    
+
                 ragSourcesGradioComponent = gr.Textbox(label="Rag sources")
 
                 gr.on(

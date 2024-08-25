@@ -1,3 +1,4 @@
+import re
 from argparse import ArgumentParser, Namespace
 from configparser import ConfigParser
 from dataclasses import dataclass, field, fields
@@ -77,7 +78,7 @@ class Config:
                 if isinstance(config_value, Config):
                     sub_config_dict = {
                         f"{config_value.config_name.lower()}.{k}": v
-                        for k, v in config_value.export().items()
+                        for k, v in config_value.export(meta_filter).items()
                     }
                     config_dict.update(sub_config_dict)
                 else:
@@ -134,6 +135,10 @@ class LLMConfig(Config):
     tensor_parallel_size: int = field(
         default=1, metadata={"converter": int, "export": True}
     )
+    llm_header: str = field(
+        default="Answer the question with the context.",
+        metadata={"converter": str, "export": True}
+    )
 
 
 @dataclass(kw_only=True)
@@ -143,14 +148,17 @@ class EmbeddingConfig(Config):
     embedding_path: Path = field(
         default="", metadata={"converter": Path, "export": True}
     )
-    emb_device_id: int = field(
-        default=0, metadata={"converter": int, "export": True}
+    emb_device: str = field(
+        default="cuda", metadata={"converter": str, "export": True}
     )
     no_trust_remote_code: bool = field(
         default=False, metadata={"converter": bool, "export": True}
     )
     attn_implementation: str = field(
         default="flash_attention_2", metadata={"converter": str, "export": True}
+    )
+    emb_precision: str = field(
+        default="float16", metadata={"converter": str, "export": True}
     )
 
 
@@ -161,14 +169,24 @@ class RerankerConfig(Config):
     reranker_path: Path = field(
         default=Path.cwd() / "reranker", metadata={"converter": Path, "export": True}
     )
-    reranker_device_id: int = field(
-        default=0, metadata={"converter": int, "export": True}
+    reranker_device: str = field(
+        default="cuda", metadata={"converter": str, "export": True}
+    )
+    reranker_guide: str = field(
+        default="Retrieve relevant passages that help to answer the query.",
+        metadata={"converter": str, "export": True}
+    )
+    reranker_precision: str = field(
+        default="float16", metadata={"converter": str, "export": True}
+    )
+    no_rerank: bool = field(
+        default=False, metadata={"converter": bool, "export": True}
     )
 
 
 @dataclass(kw_only=True)
-class GlobalConfig(Config):
-    config_name: str = "GLOBAL"
+class VDBConfig(Config):
+    config_name: str = "VDB"
 
     vdb_path: Path = field(
         default=Path.cwd() / "vdb", metadata={"converter": Path, "export": True}
@@ -177,16 +195,39 @@ class GlobalConfig(Config):
         default=Path.cwd() / "data", metadata={"converter": Path, "export": False}
     )
 
+    max_tokens_per_chunk: int = field(
+        default=512, metadata={"converter": int, "export": True}
+    )
+    nb_tokens_chunk_overlap: int = field(
+        default=128, metadata={"converter": int, "export": True}
+    )
+
+
+@dataclass(kw_only=True)
+class GlobalConfig(Config):
+    config_name: str = "GLOBAL"
+
+    system_prompts_path: Path = field(
+        default=Path.cwd() / "system_prompts.txt",
+        metadata={"converter": Path, "export": False}
+    )
+
     retrieval_threshold: float = field(
         default=0.2, metadata={"converter": float, "export": False}
+    )
+    n_retrieved_docs: int = field(
+        default=8, metadata={"converter": int, "export": False}
+    )
+    coef_rerank_retrieve_docs: float = field(
+        default=4.0, metadata={"converter": float, "export": True}
     )
 
     make_vdb: bool = field(
         default=False, metadata={"converter": bool, "export": False}
     )
 
-    like_data_path: Path = field(
-        default=Path.cwd() / "like_data", metadata={"converter": Path, "export": False}
+    saved_data_path: Path = field(
+        default=Path.cwd() / "saved_data", metadata={"converter": Path, "export": False}
     )
 
     llm_config: LLMConfig = field(
@@ -201,3 +242,30 @@ class GlobalConfig(Config):
         default_factory=lambda: RerankerConfig(sub_config=True),
         metadata={"export": False}
     )
+    vdb_config: VDBConfig = field(
+        default_factory=lambda: VDBConfig(sub_config=True),
+        metadata={"export": False}
+    )
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+
+        if self.system_prompts_path.exists():
+            system_prompts_lines = self.system_prompts_path.read_text().splitlines()
+            attribute_updates = {}
+
+            for line in system_prompts_lines:
+                if re.search(r"\[(.*)\]", line):
+                    current_attribute = re.search(r"\[(.*)\]", line).group(1)
+                    attribute_updates[current_attribute] = ""
+                else:
+                    attribute_updates[current_attribute] += line + "\n"
+
+            for attribute, value in attribute_updates.items():
+                if attribute == "reranker_guide":
+                    self.reranker_config.reranker_guide = value.strip()
+                    print(f"Updated {attribute} from system prompts file")
+
+                if attribute == "llm_header":
+                    self.llm_config.llm_header = value.strip()
+                    print(f"Updated {attribute} from system prompts file")

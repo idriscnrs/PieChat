@@ -74,7 +74,10 @@ class PieChat:
         )[0]
         best_scores, best_indices = torch.topk(similarities, n_retrieved_docs)
         docs = [
-            (docs[best_indices[i]][0], (docs[best_indices[i]][1], best_scores[i].cpu().item()))
+            (
+                docs[best_indices[i]][0],
+                (docs[best_indices[i]][1], best_scores[i].cpu().item())
+            )
             for i in range(len(best_indices)) if best_scores[i] > retrieval_threshold
         ]
         return docs
@@ -113,7 +116,6 @@ class PieChat:
             } for doc in docs
         ]  # Save the last retrieved docs for dpo training
 
-        self.last_docs = docs
         self.last_docs_to_pull = docs
         return docs
 
@@ -142,16 +144,6 @@ class PieChat:
         text_input = header + retrieved_str + history_str + last_chat
         print(text_input)
         return text_input
-
-    def get_sources(self):
-        sorted_sources = [
-            f"{doc[0].metadata['source']} retrieval_score={doc[1][0]} "
-            + f"rerank_score{doc[1][1]}"
-            for doc in self.last_docs
-        ]
-
-        sources = "\n".join(sorted_sources)
-        return "sources with their scores:\n" + sources
 
     async def chat(
         self,

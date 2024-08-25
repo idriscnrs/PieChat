@@ -31,7 +31,7 @@ class PieChat:
         self.embedding = HuggingFaceEmbeddings(
             model_name=str(emb_config.embedding_path),  # Does not accept Path
             model_kwargs={
-                "device": f"cuda:{emb_config.emb_device_id}",
+                "device": emb_config.emb_device,
                 "trust_remote_code": not emb_config.no_trust_remote_code,
                 "model_kwargs": {
                     "attn_implementation": emb_config.attn_implementation,
@@ -47,7 +47,7 @@ class PieChat:
         if not reranker_config.no_rerank:
             self.reranker = SentenceTransformer(
                 str(reranker_config.reranker_path),
-                device=f"cuda:{reranker_config.reranker_device_id}",
+                device=reranker_config.reranker_device,
                 model_kwargs={
                     "torch_dtype": getattr(torch, reranker_config.reranker_precision)
                 }

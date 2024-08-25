@@ -58,7 +58,7 @@ def create_vdb(
     embedding = HuggingFaceEmbeddings(
         model_name=str(emb_config.embedding_path),  # Does not accept Path
         model_kwargs={
-            "device": f"cuda:{emb_config.emb_device_id}",
+            "device": emb_config.emb_device,
             "trust_remote_code": not emb_config.no_trust_remote_code,
             "model_kwargs": {
                 "attn_implementation": emb_config.attn_implementation,

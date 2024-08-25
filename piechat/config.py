@@ -148,8 +148,8 @@ class EmbeddingConfig(Config):
     embedding_path: Path = field(
         default="", metadata={"converter": Path, "export": True}
     )
-    emb_device_id: int = field(
-        default=0, metadata={"converter": int, "export": True}
+    emb_device: str = field(
+        default="cuda", metadata={"converter": str, "export": True}
     )
     no_trust_remote_code: bool = field(
         default=False, metadata={"converter": bool, "export": True}
@@ -169,8 +169,8 @@ class RerankerConfig(Config):
     reranker_path: Path = field(
         default=Path.cwd() / "reranker", metadata={"converter": Path, "export": True}
     )
-    reranker_device_id: int = field(
-        default=0, metadata={"converter": int, "export": True}
+    reranker_device: str = field(
+        default="cuda", metadata={"converter": str, "export": True}
     )
     reranker_guide: str = field(
         default="Retrieve relevant passages that help to answer the query.",

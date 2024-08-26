@@ -5,6 +5,8 @@ import gradio as gr
 from .config import GlobalConfig
 from .engine import PieChat
 
+from gradio_rag_sources import RagSourcesTable, _RagSource as RagSource
+
 WELCOME_MESSAGE = """<strong>
 PieChat - Votre assistant à l'utilisation de Jean Zay
 </strong><br>
@@ -13,7 +15,7 @@ Vous pouvez lui faire confiance à 100%, il ne se trompe jamais."""
 
 def await_rag_sources(piechat: PieChat):
 
-    def wrapped():
+    def wrapped() -> list[RagSource]:
         while True:
             sources = piechat.last_docs_to_pull
             if sources is None:
@@ -21,34 +23,20 @@ def await_rag_sources(piechat: PieChat):
             else:
                 piechat.last_docs_to_pull = None
                 break
-        docs = [
-            f"{doc[0].metadata['source']} retrieval_score={doc[1][0]}"
-            + f" rerank_score={doc[1][1]}"
+        docs: list[RagSource] = [
+            RagSource(
+                url=doc[0].metadata["source"],
+                retrievalScore=doc[1][0],
+                rerankScore=doc[1][1],
+            )
             for doc in sources
         ]
-        return "\n".join(docs)
+        return docs
 
     return wrapped
 
 
 def launch_gradio(piechat: PieChat, config: GlobalConfig):
-
-    submitButton = gr.Button(
-        "Submit",
-        variant="primary",
-        scale=1,
-        min_width=150,
-        render=False,
-    )
-    inputRequestGradioComponent = gr.Textbox(
-        container=False,
-        show_label=False,
-        label="Message",
-        placeholder="Type a message...",
-        scale=7,
-        autofocus=True,
-        render=False,
-    )
 
     with gr.Blocks() as demo:
         with gr.Row():
@@ -105,20 +93,34 @@ def launch_gradio(piechat: PieChat, config: GlobalConfig):
                     piechat.save_chat(data.liked)
 
                 chatbot.like(save_like_data, None, None)
-                gr.ChatInterface(
+                chatInterface = gr.ChatInterface(
                     piechat.chat,
                     chatbot=chatbot,
-                    textbox=inputRequestGradioComponent,
-                    submit_btn=submitButton,
                     additional_inputs=additional_inputs
                 )
+                (
+                    retry_btn,
+                    undo_btn,
+                    clear_btn,
+                    submit_btn,
+                    stop_btn,
+                ) = chatInterface.buttons
 
-                ragSourcesGradioComponent = gr.Textbox(label="Rag sources")
+                ragSourcesGradioComponent = RagSourcesTable(value=[]) #gr.Textbox(label="Rag sources")
 
-                gr.on(
-                    triggers=[submitButton.click, inputRequestGradioComponent.submit],
+                awaitEvent = gr.on(
+                    triggers=[submit_btn.click, retry_btn.click, chatInterface.textbox.submit],
                     fn=await_rag_sources(piechat),
                     outputs=[ragSourcesGradioComponent],
+                )
+                gr.on(
+                    triggers=[clear_btn.click, undo_btn.click],
+                    fn=lambda: [],
+                    outputs=[ragSourcesGradioComponent],
+                )
+                gr.on(
+                    triggers=[stop_btn.click],
+                    cancels=[awaitEvent],
                 )
 
     demo.launch(share=True)

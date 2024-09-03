@@ -1,11 +1,11 @@
 import time
 
 import gradio as gr
+from gradio_rag_sources import RagSourcesTable
+from gradio_rag_sources import _RagSource as RagSource
 
 from .config import GlobalConfig
 from .engine import PieChat
-
-from gradio_rag_sources import RagSourcesTable, _RagSource as RagSource
 
 WELCOME_MESSAGE = """<strong>
 PieChat - Votre assistant à l'utilisation de Jean Zay
@@ -106,10 +106,13 @@ def launch_gradio(piechat: PieChat, config: GlobalConfig):
                     stop_btn,
                 ) = chatInterface.buttons
 
-                ragSourcesGradioComponent = RagSourcesTable(value=[]) #gr.Textbox(label="Rag sources")
+                # gr.Textbox(label="Rag sources")
+                ragSourcesGradioComponent = RagSourcesTable(value=[])
 
                 awaitEvent = gr.on(
-                    triggers=[submit_btn.click, retry_btn.click, chatInterface.textbox.submit],
+                    triggers=[
+                        submit_btn.click, retry_btn.click, chatInterface.textbox.submit
+                    ],
                     fn=await_rag_sources(piechat),
                     outputs=[ragSourcesGradioComponent],
                 )

@@ -34,6 +34,13 @@ python -m piechat --config_file ./config.ini
 ## With Sofi
 You need to use the [following image](https://hub.docker.com/layers/cnrsidris/spellm/new/images/sha256-6930be29304dfb64518527ef6dc429781d1395685f13ce22b0d8c9781a5ea715?context=repo) to run PieChat with Sofi: `cnrsidris/spellm:new` <br>
 
+Then install the python libraries:
+```bash
+pip install langchain_huggingface
+pip install langchain_chroma
+pip install gradio_rag_sources
+```
+
 At this time, the P2P communication between GPUs is not set on Sofi. You need to disable it with `NCCL_P2P_DISABLE=1`. <br>
 Also, if you want to use more than one GPU, you need to specify the `CUDA_VISIBLE_DEVICES` environment variable. <br>
 

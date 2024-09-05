@@ -1,7 +1,10 @@
 FROM vllm/vllm-openai:v0.5.5
 
+# Set the working directory
+WORKDIR /PieChat
+
 # Copy the current directory contents into the container
-COPY . .
+COPY . /PieChat
 
 # Install any needed packages
 RUN apt-get update --yes && \
@@ -22,14 +25,14 @@ RUN pip install --no-cache-dir \
     pysqlite3-binary
 
 # Download IDRIS documentation
-RUN git lfs install
-RUN git clone https://huggingface.co/datasets/CNRS-IDRIS/idris_doc_dataset
+RUN cd / \
+    && git lfs install \
+    && git clone https://huggingface.co/datasets/CNRS-IDRIS/idris_doc_dataset
 
-# Create the vector database
-RUN NCCL_P2P_DISABLE=1 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 \
-    python3 -m piechat --config_file ./config_sofi.ini \
-    --make_vdb --data_path ./idris_doc_dataset
+# Set port and server name for gradio
+EXPOSE 7860
+ENV GRADIO_SERVER_NAME="0.0.0.0"
 
-# Run the application
-RUN NCCL_P2P_DISABLE=1 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 \
-    python3 -m piechat --config_file ./config_sofi.ini --run_server
+# Set the entrypoint
+RUN chmod +x /PieChat/entrypoint.sh
+ENTRYPOINT ["./entrypoint.sh"]

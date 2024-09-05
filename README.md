@@ -48,3 +48,11 @@ Here is an example of command to launch PieChat with Sofi on 8 GPUs:
 ```bash
 NCCL_P2P_DISABLE=1 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python -m piechat --config_file ./config_sofi.ini
 ```
+
+
+## With Docker
+You can also use the Docker image `cnrsidris/piechat:dev` to run PieChat. <br>
+Here is an example of command to launch PieChat with Docker on 1 GPU:
+```bash
+docker run --gpus all -v /path/to/model/dir:/models -p 7860:7860 cnrsidris/piechat:dev
+```

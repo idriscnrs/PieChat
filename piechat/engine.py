@@ -156,7 +156,7 @@ class PieChat:
                 "like": liked,
                 "config": self.config.export_config()
             }
-    
+
             # Save the like data in a json, the name is the current timestamp
             with open(
                 self.config.saved_data_path / f"{self.name_save_file}.json", "w"

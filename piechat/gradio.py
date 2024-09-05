@@ -126,4 +126,4 @@ def launch_gradio(piechat: PieChat, config: GlobalConfig):
                     cancels=[awaitEvent],
                 )
 
-    demo.launch(share=True)
+    demo.launch(share=False)
